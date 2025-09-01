@@ -40,23 +40,6 @@ void Matrix_Init() {
   Matrix.setTextColor(colors[0]); 
   MatrixWidth   = Matrix.width(); 
 }
-
-// 追加: 表示色を切り替え
-void Matrix_SetTextColorIndex(uint8_t idx) {
-  Matrix.setTextColor(colors[idx % 3]);
-}
-
-
-
-// 追加: 起動確認の全点灯テスト
-void Matrix_BootTest(uint8_t r, uint8_t g, uint8_t b, uint16_t duration_ms) {
-  Matrix.fillScreen(Matrix.Color(r, g, b));
-  Matrix.show();
-  delay(duration_ms);
-  Matrix.fillScreen(0);
-  Matrix.show();
-}
-
 void Text_Flow(char* Text) {
   int textWidth   = getStringWidth(Text);
   Matrix.fillScreen(0);

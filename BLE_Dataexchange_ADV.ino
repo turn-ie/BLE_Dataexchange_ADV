@@ -6,7 +6,7 @@
 static const NimBLEUUID kServiceUUID((uint16_t)0xFFF0);
 
 // 自分の基本メッセージ（あとで末尾に短いIDを付ける）
-static const char* kMessageBase = "hello-esp32";
+static const char* kMessageBase = "BBBBBB";
 
 // 広告（送信）関連
 NimBLEAdvertising* gAdv = nullptr;
@@ -58,7 +58,6 @@ void setup() {
   Serial.begin(115200);
   while (!Serial) { delay(10); }
   Serial.println("\n== Dual Role: Beacon + Scanner ==");
-  
   Matrix_Init();
 
   // ---- NimBLE 初期化 ----
@@ -96,6 +95,8 @@ void setup() {
 }
 
 void loop() {
+
+
   // 広告は常時出しっぱなし
   // スキャンは数秒ごとに回して結果はコールバックで処理
   gScanner->start(5 /*秒*/, false /*is_continue*/);
