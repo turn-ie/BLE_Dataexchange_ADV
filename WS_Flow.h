@@ -1,6 +1,9 @@
 #ifndef _WS_Flow_H_
 #define _WS_Flow_H_
 
+#pragma once
+#include <Arduino.h>
+
 #include <Adafruit_GFX.h>
 #include <Adafruit_NeoMatrix.h>
 #include <Adafruit_NeoPixel.h>
@@ -11,6 +14,9 @@ int getCharWidth(char c);
 int getStringWidth(const char* str);
 void Text_Flow(char* Text);
 void Matrix_Init();   
+void Ripple_PlayOnce(uint16_t duration_ms);
+// 追加: テキストを最後までスクロール再生（ブロッキング）
+void Text_PlayOnce(const char* text, uint16_t frame_delay_ms);
 
 // 起動確認の全点灯テスト（指定RGBでduration_msミリ秒点灯→消灯）
 void Matrix_BootTest(uint8_t r, uint8_t g, uint8_t b, uint16_t duration_ms);
