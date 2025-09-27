@@ -4,7 +4,7 @@
 // === 新: 2系統明るさ + 共通色相 ===
 uint8_t gTextBrightness   = 30;  // テキスト/スクロール
 uint8_t gMotionBrightness = 22;  // レーダー/リップル
-uint8_t gMotionHue        = 200; // 共通色相 (固定用)
+uint8_t gMotionHue        = 0; // 共通色相 (固定用)
 // Hue 0-255 早見表 (HSV H→代表色 / 角度近似)
 //  0 /255: 赤 (0°/360°)
 // 16: 赤橙 (~23°)
@@ -22,7 +22,7 @@ uint8_t gMotionHue        = 200; // 共通色相 (固定用)
 //208: 藍/青紫 (~293°)
 //224: マゼンタ寄り紫 (~316°)
 //240: ピンク (~339°)
-// 推奨: Motion_SetHue(H) で開始色変更。色固定運用時は gMotionHue を進めない。
+// 推奨: Motion_SetHue(H) で開始色変更。
 
 void Matrix_SetTextBrightness(uint8_t b){ gTextBrightness = b; }
 void Matrix_SetMotionBrightness(uint8_t b){ gMotionBrightness = b; }
