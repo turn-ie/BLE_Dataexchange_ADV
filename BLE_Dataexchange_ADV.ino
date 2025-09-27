@@ -1,41 +1,128 @@
-#ifndef _WS_Flow_H_
-#define _WS_Flow_H_
-
-#pragma once
 #include <Arduino.h>
+#include <NimBLEDevice.h>
+#include "WS_Flow.h"
 
-#include <Adafruit_GFX.h>
-#include <Adafruit_NeoMatrix.h>
-#include <Adafruit_NeoPixel.h>
+#define BOOT_BTN_PIN 0
 
-#define RGB_Control_PIN   14  
+static const NimBLEUUID kServiceUUID((uint16_t)0xFFF0);
+static const char* kMessageBase = "ThankYou!";
 
-int getCharWidth(char c);
-int getStringWidth(const char* str);
-void Text_Flow(char* Text);
-void Matrix_Init();   
-void Ripple_PlayOnce(uint16_t duration_ms);
-void Radar_PlayOnce();
-// 追加: テキストを最後までスクロール再生（ブロッキング）
-void Text_PlayOnce(const char* text, uint16_t frame_delay_ms);
+NimBLEAdvertising* gAdv = nullptr;
+std::string gMyMsg;
+NimBLEAddress gMyAddr;
+NimBLEScan* gScanner = nullptr;
 
-// 起動確認の全点灯テスト（指定RGBでduration_msミリ秒点灯→消灯）
-void Matrix_BootTest(uint8_t r, uint8_t g, uint8_t b, uint16_t duration_ms);
+volatile bool gHasPending = false;
+std::string gPendingMsg;
 
-// 追加: 表示色を colors[] のインデックスで切り替え（0:赤,1:緑,2:青）
-void Matrix_SetTextColorIndex(uint8_t idx);
+void startAdvertising(const std::string& myMsg) {
+  NimBLEAdvertisementData ad;
+  ad.setFlags(0x06);
+  ad.setServiceData(kServiceUUID, myMsg);
+  ad.addServiceUUID(kServiceUUID);
+  gAdv->setAdvertisementData(ad);
+  gAdv->start();
+  Serial.print("[ADV] start: ");
+  Serial.println(myMsg.c_str());
+}
 
-// === 新: 明るさ2系統 + モーション色相共有 ===
-extern uint8_t gTextBrightness;      // テキスト/スクロール用
-extern uint8_t gMotionBrightness;    // レーダー/リップル共通
-extern uint8_t gMotionHue;           // レーダー/リップル共有色相
+class ScanCallbacks : public NimBLEScanCallbacks {
+  void onResult(const NimBLEAdvertisedDevice* dev) override {
+    if (dev->getAddress() == gMyAddr) return;
+    std::string data = dev->getServiceData(kServiceUUID);
+    if (data.empty()) return;
+    std::string display = data;
+    size_t pos = display.find('#');
+    if (pos != std::string::npos) display.erase(pos);
+    if (!gHasPending) {
+      gPendingMsg = display;
+      gHasPending = true;
+    }
+    Serial.print("[RX] from ");
+    Serial.print(dev->getAddress().toString().c_str());
+    Serial.print(" RSSI=");
+    Serial.print(dev->getRSSI());
+    Serial.print(" dBm  msg=\"");
+    Serial.println(data.c_str());
+  }
+} gScanCallbacks;
 
-void Matrix_SetTextBrightness(uint8_t b);
-void Matrix_SetMotionBrightness(uint8_t b);
-void Motion_SetHue(uint8_t h);
+void setup() {
+  // 任意: 初期パラメータ（必要に応じ調整）
 
-// レーダー待機(非ブロッキング)
-void Radar_InitIdle();
-void Radar_IdleStep(bool doShow = true);
+  delay(3000);
+  Matrix_SetTextBrightness(30);    // 文字明るさ
+  Matrix_SetMotionBrightness(22);  // モーション明るさ
 
-#endif
+
+  Serial.begin(115200);
+  //while (!Serial) { delay(10); }
+  Serial.println("\n== Dual Role: Beacon + Scanner ==");
+  Matrix_Init();
+  Radar_InitIdle();
+  pinMode(BOOT_BTN_PIN, INPUT_PULLUP);
+
+  NimBLEDevice::init("");
+  NimBLEDevice::setPower(3);
+  gMyAddr = NimBLEDevice::getAddress();
+  {
+    std::string mac = gMyAddr.toString();
+    std::string tail = mac.substr(9);
+    std::string id;
+    for (char ch : tail) if (ch != ':') id += (char)toupper(ch);
+    gMyMsg = std::string(kMessageBase) + "#" + id;
+  }
+  gAdv = NimBLEDevice::getAdvertising();
+  startAdvertising(gMyMsg);
+
+  gScanner = NimBLEDevice::getScan();
+  gScanner->setScanCallbacks(&gScanCallbacks, false);
+  gScanner->setActiveScan(true);
+  gScanner->setInterval(100);
+  gScanner->setWindow(100);
+
+  Serial.print("My MAC: "); Serial.println(gMyAddr.toString().c_str());
+  Serial.print("My MSG: "); Serial.println(gMyMsg.c_str());
+  Serial.println("Scanning + Advertising...");
+
+  Ripple_PlayOnce(600); // 起動演出（モーション色相/明るさ使用）
+  Radar_InitIdle(); 
+}
+
+void loop() {
+  static bool prev = HIGH;
+  static uint32_t lastMs = 0;
+  bool curr = digitalRead(BOOT_BTN_PIN);
+  uint32_t now = millis();
+
+  // ボタン押下: 手動でRipple再生 → レーダー復帰
+  if (prev == HIGH && curr == LOW && (now - lastMs) > 200) {
+    if (gScanner) gScanner->stop();
+    Ripple_PlayOnce(600);
+    Radar_InitIdle();
+    if (gScanner) gScanner->start(5, false);
+    lastMs = now;
+  }
+  prev = curr;
+
+  // 受信イベント処理: Ripple → テキスト → レーダー再開
+  if (gHasPending) {
+    if (gScanner) gScanner->stop();
+    Ripple_PlayOnce(600);
+    Text_PlayOnce(gPendingMsg.c_str(), 100);
+    gHasPending = false;
+    Radar_InitIdle();
+    if (gScanner) gScanner->start(5, false);
+  }
+
+  // スキャン継続（終わっていたら再始動）
+  if (gScanner && !gScanner->isScanning()) {
+    gScanner->start(5, false);
+    gScanner->clearResults();
+  }
+
+  // アイドル中レーダー1フレーム描画
+  Radar_IdleStep(true);
+
+  delay(16); // 約60fps
+}

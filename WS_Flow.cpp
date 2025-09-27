@@ -11,6 +11,7 @@ uint8_t gMotionHue        = 90; // 共通色相 (固定用)
 //210水色
 //235青緑
 
+
 void Matrix_SetTextBrightness(uint8_t b){ gTextBrightness = b; }
 void Matrix_SetMotionBrightness(uint8_t b){ gMotionBrightness = b; }
 void Motion_SetHue(uint8_t h){ gMotionHue = h; }
