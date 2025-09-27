@@ -5,7 +5,7 @@
 #define BOOT_BTN_PIN 0
 
 static const NimBLEUUID kServiceUUID((uint16_t)0xFFF0);
-static const char* kMessageBase = "YourWelcome!";
+static const char* kMessageBase = "ThankYou!";
 
 NimBLEAdvertising* gAdv = nullptr;
 std::string gMyMsg;
@@ -51,7 +51,7 @@ void setup() {
   // 任意: 初期パラメータ（必要に応じ調整）
   Matrix_SetTextBrightness(30);    // 文字明るさ
   Matrix_SetMotionBrightness(22);  // モーション明るさ
-  Motion_SetHue(200);              // 初期色相
+  
 
   Ripple_PlayOnce(600); // 起動演出（モーション色相/明るさ使用）
   Serial.begin(115200);
