@@ -2,63 +2,42 @@
 #include <NimBLEDevice.h>
 #include "WS_Flow.h"
 
-#define BOOT_BTN_PIN 0  /////////////////////////////////////////////////////////////////
+#define BOOT_BTN_PIN 0
 
-// 共有のService UUID（任意の16-bitでOK。必要なら128-bitに変更可）
 static const NimBLEUUID kServiceUUID((uint16_t)0xFFF0);
+static const char* kMessageBase = "YourWelcome!";
 
-// 自分の基本メッセージ（あとで末尾に短いIDを付ける）
-static const char* kMessageBase = "Thankyou!";
-
-// 広告（送信）関連
 NimBLEAdvertising* gAdv = nullptr;
 std::string gMyMsg;
 NimBLEAddress gMyAddr;
-
-// スキャン（受信）関連
 NimBLEScan* gScanner = nullptr;
 
-// 追加: 受信ペンディング管理
 volatile bool gHasPending = false;
 std::string gPendingMsg;
 
-// 自分のアドバタイズを作成して開始
 void startAdvertising(const std::string& myMsg) {
   NimBLEAdvertisementData ad;
-  ad.setFlags(0x06);  // 一般発見可能・BR/EDR非対応
+  ad.setFlags(0x06);
   ad.setServiceData(kServiceUUID, myMsg);
   ad.addServiceUUID(kServiceUUID);
-
   gAdv->setAdvertisementData(ad);
-  gAdv->start();  // 垂れ流し（止めない）
+  gAdv->start();
   Serial.print("[ADV] start: ");
   Serial.println(myMsg.c_str());
 }
 
-// 受信コールバック
 class ScanCallbacks : public NimBLEScanCallbacks {
   void onResult(const NimBLEAdvertisedDevice* dev) override {
-    // 自分自身の広告は無視
     if (dev->getAddress() == gMyAddr) return;
-
-    // 指定UUIDのService Dataを取得
     std::string data = dev->getServiceData(kServiceUUID);
     if (data.empty()) return;
-
-    // 表示用に '#' 以降（ID部分）を削除
     std::string display = data;
     size_t pos = display.find('#');
-    if (pos != std::string::npos) {
-      display.erase(pos);
-    }
-
-    // コールバックでは保存だけ（多重受付を抑制）
+    if (pos != std::string::npos) display.erase(pos);
     if (!gHasPending) {
-      gPendingMsg = display;  // マトリクス表示はIDなし
+      gPendingMsg = display;
       gHasPending = true;
     }
-
-    // デバッグ表示（フル文字列＝ID付きのまま）
     Serial.print("[RX] from ");
     Serial.print(dev->getAddress().toString().c_str());
     Serial.print(" RSSI=");
@@ -68,47 +47,41 @@ class ScanCallbacks : public NimBLEScanCallbacks {
   }
 } gScanCallbacks;
 
-
 void setup() {
+  // 任意: 初期パラメータ（必要に応じ調整）
+  Matrix_SetTextBrightness(30);    // 文字明るさ
+  Matrix_SetMotionBrightness(22);  // モーション明るさ
+  Motion_SetHue(200);              // 初期色相
+
+  Ripple_PlayOnce(600); // 起動演出（モーション色相/明るさ使用）
   Serial.begin(115200);
   while (!Serial) { delay(10); }
   Serial.println("\n== Dual Role: Beacon + Scanner ==");
   Matrix_Init();
+  Radar_InitIdle();
+  pinMode(BOOT_BTN_PIN, INPUT_PULLUP);
 
-  pinMode(BOOT_BTN_PIN, INPUT_PULLUP);  ///////////////////////////////////////////////////////////////////////
-
-
-  // ---- NimBLE 初期化 ----
-  NimBLEDevice::init("");     // デバイス名は空（最小）
-  NimBLEDevice::setPower(3);  // 全送信出力を +3 dBm に（必要に応じて調整）
-
+  NimBLEDevice::init("");
+  NimBLEDevice::setPower(3);
   gMyAddr = NimBLEDevice::getAddress();
-
-  // 自分の短いID（MAC下位3バイトなど）をメッセージに付与
   {
     std::string mac = gMyAddr.toString();
     std::string tail = mac.substr(9);
     std::string id;
-    for (char ch : tail)
-      if (ch != ':') id += (char)toupper(ch);
+    for (char ch : tail) if (ch != ':') id += (char)toupper(ch);
     gMyMsg = std::string(kMessageBase) + "#" + id;
   }
-
-  // ---- 広告開始（送信）----
   gAdv = NimBLEDevice::getAdvertising();
   startAdvertising(gMyMsg);
 
-  // ---- スキャン設定（受信）----
   gScanner = NimBLEDevice::getScan();
   gScanner->setScanCallbacks(&gScanCallbacks, false);
   gScanner->setActiveScan(true);
   gScanner->setInterval(100);
   gScanner->setWindow(100);
 
-  Serial.print("My MAC: ");
-  Serial.println(gMyAddr.toString().c_str());
-  Serial.print("My MSG: ");
-  Serial.println(gMyMsg.c_str());
+  Serial.print("My MAC: "); Serial.println(gMyAddr.toString().c_str());
+  Serial.print("My MSG: "); Serial.println(gMyMsg.c_str());
   Serial.println("Scanning + Advertising...");
 }
 
@@ -117,24 +90,35 @@ void loop() {
   static uint32_t lastMs = 0;
   bool curr = digitalRead(BOOT_BTN_PIN);
   uint32_t now = millis();
-  if (prev == HIGH && curr == LOW && (now - lastMs) > 200) {  // 押下エッジ＋デバウンス
+
+  // ボタン押下: 手動でRipple再生 → レーダー復帰
+  if (prev == HIGH && curr == LOW && (now - lastMs) > 200) {
     if (gScanner) gScanner->stop();
-    Ripple_PlayOnce(600);  // 約600msのリップル
+    Ripple_PlayOnce(600);
+    Radar_InitIdle();
+    if (gScanner) gScanner->start(5, false);
     lastMs = now;
   }
   prev = curr;
 
-
-  // 受信があれば、スキャンを停止して Ripple→テキストを最後まで表示
+  // 受信イベント処理: Ripple → テキスト → レーダー再開
   if (gHasPending) {
     if (gScanner) gScanner->stop();
     Ripple_PlayOnce(600);
-    Text_PlayOnce(gPendingMsg.c_str(), 100);  // 40ms/フレーム（調整可）
+    Text_PlayOnce(gPendingMsg.c_str(), 100);
     gHasPending = false;
+    Radar_InitIdle();
+    if (gScanner) gScanner->start(5, false);
   }
 
-  // 広告は常時出しっぱなし、スキャンを回す
-  gScanner->start(5 /*秒*/, false /*is_continue*/);
-  gScanner->clearResults();
-  delay(200);
+  // スキャン継続（終わっていたら再始動）
+  if (gScanner && !gScanner->isScanning()) {
+    gScanner->start(5, false);
+    gScanner->clearResults();
+  }
+
+  // アイドル中レーダー1フレーム描画
+  Radar_IdleStep(true);
+
+  delay(16); // 約60fps
 }
