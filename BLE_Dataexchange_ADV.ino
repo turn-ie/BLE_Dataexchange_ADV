@@ -6,6 +6,7 @@
 
 static const NimBLEUUID kServiceUUID((uint16_t)0xFFF0);
 static const char* kMessageBase = "ThankYou!";
+static const int kRssiThreshold = -50; // これ未満(RSSI値が小さい=遠い)は無視
 
 NimBLEAdvertising* gAdv = nullptr;
 std::string gMyMsg;
@@ -29,6 +30,11 @@ void startAdvertising(const std::string& myMsg) {
 class ScanCallbacks : public NimBLEScanCallbacks {
   void onResult(const NimBLEAdvertisedDevice* dev) override {
     if (dev->getAddress() == gMyAddr) return;
+    int rssi = dev->getRSSI();
+    if (rssi < kRssiThreshold) {
+      // Serial.printf("[SKIP] %s RSSI=%d<th %d\n", dev->getAddress().toString().c_str(), rssi, kRssiThreshold);
+      return; // 閾値未満は無視
+    }
     std::string data = dev->getServiceData(kServiceUUID);
     if (data.empty()) return;
     std::string display = data;
@@ -41,7 +47,7 @@ class ScanCallbacks : public NimBLEScanCallbacks {
     Serial.print("[RX] from ");
     Serial.print(dev->getAddress().toString().c_str());
     Serial.print(" RSSI=");
-    Serial.print(dev->getRSSI());
+    Serial.print(rssi);
     Serial.print(" dBm  msg=\"");
     Serial.println(data.c_str());
   }
@@ -51,8 +57,8 @@ void setup() {
   // 任意: 初期パラメータ（必要に応じ調整）
 
   delay(3000);
-  Matrix_SetTextBrightness(30);    // 文字明るさ
-  Matrix_SetMotionBrightness(22);  // モーション明るさ
+  Matrix_SetTextBrightness(25);    // 文字明るさ
+  Matrix_SetMotionBrightness(30);  // モーション明るさ
 
 
   Serial.begin(115200);
