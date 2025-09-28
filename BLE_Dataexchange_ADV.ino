@@ -57,8 +57,8 @@ void setup() {
   // 任意: 初期パラメータ（必要に応じ調整）
 
   delay(3000);
-  Matrix_SetTextBrightness(25);    // 文字明るさ
-  Matrix_SetMotionBrightness(30);  // モーション明るさ
+  Matrix_SetTextBrightness(1);    // 文字明るさ
+  Matrix_SetMotionBrightness(1);  // モーション明るさ
 
 
   Serial.begin(115200);

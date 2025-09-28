@@ -2,8 +2,8 @@
 #include <math.h>
 
 // === 新: 2系統明るさ + 共通色相 ===
-uint8_t gTextBrightness   = 30;  // テキスト/スクロール
-uint8_t gMotionBrightness = 22;  // レーダー/リップル
+uint8_t gTextBrightness   = 1;  // テキスト/スクロール
+uint8_t gMotionBrightness = 1;  // レーダー/リップル
 uint8_t gMotionHue        = 90; // 共通色相 (固定用)
 // Hue 0-255 早見表 (HSV H→代表色 / 角度近似)
 //100ピンク
