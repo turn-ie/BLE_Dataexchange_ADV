@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <NimBLEDevice.h>
-#include "WS_Flow.h"
+#include "Display_text.h"
+#include "Motion.h"
 
 #define BOOT_BTN_PIN 0
 
