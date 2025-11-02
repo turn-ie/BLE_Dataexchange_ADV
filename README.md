@@ -33,7 +33,8 @@ ESP32-S3 同士でBLEアドバタイズのService Dataをやり取りし、受�
 
 ## プロジェクト構成
 - `BLE_Dataexchange_ADV.ino`: メイン（BLE広告/スキャン、受信フロー制御、BOOTボタン）
-- `WS_Flow.h` / `WS_Flow.cpp`: マトリクス表示（初期化、リップル、テキスト表示）
+- `Display_text.h` / `Display_text.cpp`: テキスト表示機能（マトリクス初期化、文字スクロール表示）
+- `Motion.h` / `Motion.cpp`: モーション機能（レーダー、リップルエフェクト）
 
 ## 動作仕様
 - 受信メッセージ書式: `本文#ID`（例: `Thankyou!#A1B2C3`）
@@ -45,16 +46,19 @@ ESP32-S3 同士でBLEアドバタイズのService Dataをやり取りし、受�
 
 ## カスタマイズ（主な変更点）
 - 明るさ:
-  - 通常: `Matrix.setBrightness(1)`（`WS_Flow.cpp` の `Matrix_Init()`）
-  - リップル中: 一時的に 22 に設定 → 終了時に 0 までフェード → 元の値に復帰
+  - テキスト: `gTextBrightness`（デフォルト1、`Display_text.cpp`）
+  - モーション: `gMotionBrightness`（デフォルト20、`Motion.cpp`）
+  - 設定関数: `Matrix_SetTextBrightness()`, `Matrix_SetMotionBrightness()`
 - 色:
-  - デフォルトは `colors[0]`（`Matrix_Init()`）。`Matrix_SetTextColorIndex()`で変更可
+  - テキスト: デフォルトは白（`colors[0]`、`Matrix_Init()`）
+  - モーション: `gMotionHue`（デフォルト90=赤ピンク、`Motion.cpp`）
+  - 設定関数: `Motion_SetHue()`
 - スクロール速度:
   - `Text_PlayOnce(const char* text, uint16_t frameDelayMs)` の `frameDelayMs` を調整
 - マトリクス配列・向き:
   - `Adafruit_NeoMatrix` のフラグ（TOP/RIGHT, COLUMNS/ROWS, PROGRESSIVE/ZIGZAG）を実機に合わせて調整
 - ピン:
-  - `WS_Flow.h` の `RGB_Control_PIN`（既定 14）
+  - `Display_text.h` の `RGB_Control_PIN`（既定 14）
 
 ## ビルド/書き込み
 Arduino IDE でも Arduino CLI でも可。CLI例:
@@ -92,6 +96,7 @@ arduino-cli upload -p /dev/tty.usbmodem11401 -b esp32:esp32:gen4-ESP32-S3R8n16
 - メッセージはキューイングしていない（受信中に新規は1件だけ保留）
 
 ## 変更履歴
+- 2025-11-02: 機能をDisplay_text（テキスト表示）とMotion（モーション）に分離、モジュール化
 - 2025-09-03: README整備、受信時のID非表示、リップル1サイクル＆フェードアウト仕様を記録
 
 ## ライセンス
